@@ -1,0 +1,620 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { 
+  Zap, 
+  Box, 
+  Settings, 
+  Trash2, 
+  Download, 
+  Info, 
+  AlertTriangle, 
+  Search, 
+  GripVertical,
+  CheckCircle2,
+  XCircle,
+  FileText,
+  ShieldCheck,
+  ShieldAlert,
+  Wifi,
+  Puzzle,
+  Tag
+} from 'lucide-react';
+
+// --- CHARGEMENT DE JSPDF VIA CDN (Pour l'export) ---
+const useJSPDF = () => {
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    script.onload = () => {
+      const autoTable = document.createElement('script');
+      autoTable.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js";
+      autoTable.onload = () => setLoaded(true);
+      document.body.appendChild(autoTable);
+    };
+    document.body.appendChild(script);
+  }, []);
+  return loaded;
+};
+
+// --- DONNÉES PRODUITS (Catalogue Vérifié & Corrigé) ---
+
+const CATEGORIES = {
+  COFFRET: 'coffret',
+  PROTECTION_TETE: 'protection_tete',
+  PROTECTION_CIRCUIT: 'protection_circuit',
+  COMMANDE: 'commande',
+  ACCESSOIRE: 'accessoire'
+};
+
+// Accessoires Automatiques (Logique métier)
+const ACCESSORIES_AUTO = {
+  // GAMME XE (Embrochable)
+  comb_xe_13: { ref: 'R9EXHS13', name: 'Répartiteur XE Distri\'clic 13M', price: 16.50, type: 'auto' },
+  comb_xe_18: { ref: 'R9EXHS18', name: 'Répartiteur XE Distri\'clic 18M', price: 21.00, type: 'auto' },
+  comb_vertical_xe: { ref: 'R9EXV', name: 'Kit Raccordement Vertical XE', price: 14.50, type: 'auto' },
+  
+  // GAMME XP (Vissable)
+  comb_xp_13: { ref: 'R9PXH213', name: 'Peigne XP Ph+N 63A 13M', price: 11.80, type: 'auto' },
+  comb_xp_18: { ref: 'R9PXH218', name: 'Peigne XP Ph+N 63A 18M', price: 15.20, type: 'auto' },
+  comb_vertical_xp: { ref: 'R9PXV', name: 'Peigne Vertical XP 2 Rangées', price: 9.50, type: 'auto' },
+  
+  // UNIVERSELS
+  obturateur: { ref: 'R9H13387', name: 'Obturateurs (Lot de 10x 5M)', price: 8.50, type: 'auto' }, // Prix du lot
+  bornier: { ref: 'LGYT1E24', name: 'Bornier Terre Vert 24 trous', price: 10.50, type: 'auto' },
+  embouts: { ref: 'R9PAY', name: 'Embouts de protection (Sachet)', price: 3.50, type: 'auto' }
+};
+
+const CATALOGUE = [
+  // --- COFFRETS (Série R9H) ---
+  { id: 'c13_1', ref: 'R9H13401', name: 'Coffret Resi9 13M 1 Rangée', type: CATEGORIES.COFFRET, width: 0, price: 32.00, rows: 1, modules: 13, range: 'ALL' },
+  { id: 'c13_2', ref: 'R9H13402', name: 'Coffret Resi9 13M 2 Rangées', type: CATEGORIES.COFFRET, width: 0, price: 48.50, rows: 2, modules: 13, range: 'ALL' },
+  { id: 'c13_3', ref: 'R9H13403', name: 'Coffret Resi9 13M 3 Rangées', type: CATEGORIES.COFFRET, width: 0, price: 72.00, rows: 3, modules: 13, range: 'ALL' },
+  { id: 'c13_4', ref: 'R9H13404', name: 'Coffret Resi9 13M 4 Rangées', type: CATEGORIES.COFFRET, width: 0, price: 95.00, rows: 4, modules: 13, range: 'ALL' },
+  { id: 'c18_1', ref: 'R9H18401', name: 'Coffret Resi9 18M 1 Rangée', type: CATEGORIES.COFFRET, width: 0, price: 62.00, rows: 1, modules: 18, range: 'ALL' },
+  { id: 'c18_2', ref: 'R9H18402', name: 'Coffret Resi9 18M 2 Rangées', type: CATEGORIES.COFFRET, width: 0, price: 89.00, rows: 2, modules: 18, range: 'ALL' },
+  { id: 'c18_3', ref: 'R9H18403', name: 'Coffret Resi9 18M 3 Rangées', type: CATEGORIES.COFFRET, width: 0, price: 115.00, rows: 3, modules: 18, range: 'ALL' },
+
+  // --- GAMME XE (EMBROCHABLE - Série R9E) ---
+  { id: 'id_xe_40_ac', ref: 'R9ERC240', name: 'Inter Diff XE 2P 40A 30mA AC', type: CATEGORIES.PROTECTION_TETE, width: 2, price: 58.00, range: 'XE', amps: 40, diffType: 'AC' },
+  { id: 'id_xe_63_ac', ref: 'R9ERC263', name: 'Inter Diff XE 2P 63A 30mA AC', type: CATEGORIES.PROTECTION_TETE, width: 2, price: 78.00, range: 'XE', amps: 63, diffType: 'AC' },
+  { id: 'id_xe_40_a', ref: 'R9ERA240', name: 'Inter Diff XE 2P 40A 30mA A', type: CATEGORIES.PROTECTION_TETE, width: 2, price: 72.00, range: 'XE', amps: 40, diffType: 'A' },
+  { id: 'id_xe_63_a', ref: 'R9ERA263', name: 'Inter Diff XE 2P 63A 30mA A', type: CATEGORIES.PROTECTION_TETE, width: 2, price: 99.00, range: 'XE', amps: 63, diffType: 'A' },
+
+  { id: 'dj_xe_2', ref: 'R9EFC602', name: 'Disj XE 1P+N 2A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 17.50, range: 'XE', amps: 2 },
+  { id: 'dj_xe_10', ref: 'R9EFC610', name: 'Disj XE 1P+N 10A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 13.50, range: 'XE', amps: 10 },
+  { id: 'dj_xe_16', ref: 'R9EFC616', name: 'Disj XE 1P+N 16A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 13.50, range: 'XE', amps: 16 },
+  { id: 'dj_xe_20', ref: 'R9EFC620', name: 'Disj XE 1P+N 20A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 14.00, range: 'XE', amps: 20 },
+  { id: 'dj_xe_32', ref: 'R9EFC632', name: 'Disj XE 1P+N 32A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 16.50, range: 'XE', amps: 32 },
+
+  // --- GAMME XP (VISSABLE - Série R9P/R9R) ---
+  { id: 'id_xp_40_ac', ref: 'R9R11240', name: 'Inter Diff XP 2P 40A 30mA AC', type: CATEGORIES.PROTECTION_TETE, width: 2, price: 49.90, range: 'XP', amps: 40, diffType: 'AC' },
+  { id: 'id_xp_63_ac', ref: 'R9R11263', name: 'Inter Diff XP 2P 63A 30mA AC', type: CATEGORIES.PROTECTION_TETE, width: 2, price: 68.00, range: 'XP', amps: 63, diffType: 'AC' },
+  { id: 'id_xp_40_a', ref: 'R9R14240', name: 'Inter Diff XP 2P 40A 30mA A', type: CATEGORIES.PROTECTION_TETE, width: 2, price: 62.00, range: 'XP', amps: 40, diffType: 'A' },
+  { id: 'id_xp_63_a', ref: 'R9R14263', name: 'Inter Diff XP 2P 63A 30mA A', type: CATEGORIES.PROTECTION_TETE, width: 2, price: 85.00, range: 'XP', amps: 63, diffType: 'A' },
+  { id: 'id_xp_40_f', ref: 'R9R41240', name: 'Inter Diff XP 2P 40A 30mA F', type: CATEGORIES.PROTECTION_TETE, width: 2, price: 105.00, range: 'XP', amps: 40, diffType: 'F' },
+  
+  { id: 'dj_xp_2', ref: 'R9PFC602', name: 'Disj XP 1P+N 2A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 14.50, range: 'XP', amps: 2 },
+  { id: 'dj_xp_10', ref: 'R9PFC610', name: 'Disj XP 1P+N 10A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 10.50, range: 'XP', amps: 10 },
+  { id: 'dj_xp_16', ref: 'R9PFC616', name: 'Disj XP 1P+N 16A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 10.50, range: 'XP', amps: 16 },
+  { id: 'dj_xp_20', ref: 'R9PFC620', name: 'Disj XP 1P+N 20A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 11.00, range: 'XP', amps: 20 },
+  { id: 'dj_xp_32', ref: 'R9PFC632', name: 'Disj XP 1P+N 32A Courbe C', type: CATEGORIES.PROTECTION_CIRCUIT, width: 1, price: 14.00, range: 'XP', amps: 32 },
+
+  // --- UNIVERSELS ---
+  { id: 'cmd_telerupteur', ref: 'R9C3016', name: 'Télérupteur 16A (Standard)', type: CATEGORIES.COMMANDE, width: 1, price: 34.00, range: 'ALL' },
+  { id: 'cmd_contacteur', ref: 'R9C2020', name: 'Contacteur J/N 20A 2F', type: CATEGORIES.COMMANDE, width: 1, price: 45.00, range: 'ALL' },
+  { id: 'cmd_wiser_ip', ref: 'EER31800', name: 'Wiser Module IP (Passerelle)', type: CATEGORIES.COMMANDE, width: 4, price: 290.00, range: 'ALL' },
+  { id: 'acc_parafoudre', ref: 'R9L16620', name: 'Parafoudre T2 20kA Auto', type: CATEGORIES.ACCESSOIRE, width: 2, price: 120.00, range: 'ALL' },
+  { id: 'acc_prise_mod', ref: 'R9PCS616', name: 'Prise Modulaire 2P+T 16A', type: CATEGORIES.ACCESSOIRE, width: 2.5, price: 10.50, range: 'ALL' },
+  { id: 'acc_sonnerie', ref: 'R9S10230', name: 'Sonnerie Modulaire 230V', type: CATEGORIES.ACCESSOIRE, width: 1, price: 28.00, range: 'ALL' },
+];
+
+// --- COMPOSANTS UI ---
+
+const ModuleVisual = ({ item, isDragging }) => {
+  const widthClass = item.width === 1 ? 'w-12' : item.width === 2 ? 'w-24' : item.width === 2.5 ? 'w-28' : item.width === 4 ? 'w-48' : 'w-12';
+  let switchColor = 'bg-gray-800'; 
+  if (item.amps === 16) switchColor = 'bg-gray-400';
+  if (item.amps === 20) switchColor = 'bg-blue-600';
+  if (item.amps === 32) switchColor = 'bg-red-600';
+  if (item.type === CATEGORIES.PROTECTION_TETE) switchColor = 'bg-black';
+  
+  const isTechModule = item.ref.startsWith('EER') || item.ref.startsWith('R9L');
+  const labelName = item.name.includes('Disj') ? (item.amps + 'A') : 
+                    item.name.includes('Inter') ? 'Diff' : 
+                    item.name.split(' ')[0];
+
+  return (
+    <div 
+      className={`
+        relative h-32 flex flex-col items-center justify-between 
+        bg-white border border-gray-300 rounded-sm shadow-sm select-none
+        ${widthClass} ${isDragging ? 'opacity-50' : 'opacity-100'}
+        hover:shadow-md transition-all duration-200 group
+        ${isTechModule ? 'bg-gray-50' : ''}
+      `}
+      style={{ minWidth: `${item.width * 44}px` }}
+    >
+      <div className="w-full h-4 border-b border-gray-200 bg-gray-50 flex justify-center items-center">
+         <div className="w-2 h-2 rounded-full border border-gray-400 bg-white"></div>
+      </div>
+      <div className="flex flex-col items-center justify-center flex-1 w-full p-1 space-y-1">
+        <div className="w-full flex justify-center mb-1"><div className="w-3/4 h-0.5 bg-[#3DCD58] opacity-50"></div></div>
+        <div className="text-[0.55rem] font-bold text-gray-500 truncate w-full text-center">{item.ref}</div>
+        {isTechModule ? (
+           <div className="flex flex-col items-center justify-center h-14 w-full bg-gray-100 rounded border border-gray-200">
+              {item.ref.includes('EER') ? <Wifi size={16} className="text-green-600"/> : <Zap size={16} className="text-red-500"/>}
+           </div>
+        ) : (
+           <div className="relative w-5 h-12 bg-gray-100 rounded border border-gray-300 flex flex-col items-center justify-center overflow-hidden">
+             <div className={`w-4 h-6 ${switchColor} rounded-sm shadow-sm transform -translate-y-1 group-hover:translate-y-0 transition-transform duration-300`}></div>
+             <div className="absolute bottom-0 w-full h-1 bg-green-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+           </div>
+        )}
+        {item.amps && !isTechModule && (
+          <div className="text-[0.65rem] font-extrabold text-gray-700 border border-gray-200 rounded px-1 bg-gray-50 mt-1">
+            {item.type === CATEGORIES.PROTECTION_TETE ? `${item.amps}A` : `C${item.amps}`}
+            {item.diffType && <span className="ml-1 text-[0.55rem] text-blue-600 font-bold">{item.diffType}</span>}
+          </div>
+        )}
+      </div>
+      <div className="w-full h-4 border-t border-gray-200 bg-gray-50 flex justify-center items-center">
+         <div className="w-2 h-2 rounded-full border border-gray-400 bg-white"></div>
+      </div>
+      <div className="absolute -bottom-6 w-full bg-white border border-gray-200 text-[0.6rem] text-center py-0.5 rounded shadow-sm overflow-hidden whitespace-nowrap text-gray-500">
+        {labelName}
+      </div>
+    </div>
+  );
+};
+
+const Rail = ({ rowIndex, modules, capacity, onDropItem, onRemoveItem }) => {
+  const usedModules = modules.reduce((acc, m) => acc + m.width, 0);
+  const availableModules = capacity - usedModules;
+
+  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const data = e.dataTransfer.getData("application/json");
+    if (!data) return;
+    const payload = JSON.parse(data);
+    if (usedModules + payload.item.width > capacity) { alert("Espace insuffisant !"); return; }
+    onDropItem(rowIndex, payload);
+  };
+
+  return (
+    <div className="mb-10 relative">
+      <div className="absolute top-1/2 left-0 right-0 h-8 bg-gray-300 border-t border-b-2 border-gray-400 transform -translate-y-1/2 -z-10 rounded-sm shadow-inner mx-1"></div>
+      <div className="flex items-center">
+        <div className="w-20 flex flex-col items-center justify-center mr-4 text-right">
+          <span className="font-bold text-gray-600 text-sm">Rangée {rowIndex + 1}</span>
+          <span className={`text-xs font-mono ${availableModules < (capacity * 0.2) ? 'text-orange-500 font-bold' : 'text-gray-400'}`}>
+            Libre: {availableModules}M
+          </span>
+        </div>
+        <div onDragOver={handleDragOver} onDrop={handleDrop}
+          className={`flex-1 h-44 transition-all relative rounded-lg border-2 border-dashed ${modules.length === 0 ? 'bg-gray-50/50 border-gray-300' : 'bg-transparent border-transparent hover:border-green-200 hover:bg-green-50/30'} flex items-center px-2`}
+        >
+          {modules.length === 0 && <div className="absolute inset-0 flex items-center justify-center text-gray-400 pointer-events-none text-sm">Glissez les modules ici</div>}
+          <div className="flex items-center justify-start h-full gap-0.5">
+            {modules.map((module, idx) => (
+              <div key={module.uniqueId} draggable
+                onDragStart={(e) => e.dataTransfer.setData("application/json", JSON.stringify({ type: 'MOVE_INTERNAL', item: module, fromRow: rowIndex, fromIndex: idx }))}
+                className="relative group cursor-grab active:cursor-grabbing hover:z-10 transform hover:-translate-y-1 transition-transform duration-200"
+              >
+                <ModuleVisual item={module} />
+                <button onClick={() => onRemoveItem(rowIndex, idx)} className="absolute -top-3 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 shadow-md"><Trash2 size={10} /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- LOGIQUE METIER & NORMES ---
+
+const checkCompliance = (rowsData, capacityPerRow) => {
+  const totalRows = rowsData.length;
+  const totalCapacity = totalRows * capacityPerRow;
+  const totalUsed = rowsData.flat().reduce((acc, m) => acc + m.width, 0);
+  const freePercent = ((totalCapacity - totalUsed) / totalCapacity) * 100;
+  
+  const allItems = rowsData.flat();
+  const diffs = allItems.filter(i => i.type === CATEGORIES.PROTECTION_TETE);
+  const typeAs = diffs.filter(d => d.diffType === 'A' || d.diffType === 'F');
+
+  const messages = [];
+  let status = 'success';
+
+  if (freePercent < 20) {
+    status = 'error';
+    messages.push(`Réserve insuffisante : ${freePercent.toFixed(1)}% libre (20% requis).`);
+  }
+
+  if (diffs.length < 2) {
+    status = 'error';
+    messages.push("Minimum 2 Interrupteurs Différentiels requis.");
+  }
+
+  if (typeAs.length < 1) {
+    status = 'error';
+    messages.push("Au moins un Interrupteur Différentiel Type A est obligatoire.");
+  }
+
+  rowsData.forEach((row, idx) => {
+    const rowDiffs = row.filter(i => i.type === CATEGORIES.PROTECTION_TETE);
+    const rowBreakers = row.filter(i => i.type === CATEGORIES.PROTECTION_CIRCUIT);
+    
+    if (row.length > 0 && rowDiffs.length === 0) {
+      messages.push(`Rangée ${idx + 1} : Absence d'Interrupteur Différentiel en tête.`);
+      if (status !== 'error') status = 'warning';
+    }
+
+    if (rowDiffs.length === 1 && rowBreakers.length > 8) {
+      messages.push(`Rangée ${idx + 1} : Plus de 8 disjoncteurs sous un seul Différentiel (Non conforme).`);
+      if (status !== 'error') status = 'warning';
+    }
+  });
+  
+  if (!allItems.some(i => i.ref.includes('R9PCS') || i.ref.includes('Prise'))) {
+      messages.push("Conseil : Ajoutez une prise modulaire dans le tableau (GTL).");
+  }
+
+  return { status, messages, freePercent };
+};
+
+const calculateAutoAccessories = (rowsData, coffret, activeRange) => {
+  const autoItems = [];
+
+  // 1. Peignes Horizontaux
+  rowsData.forEach(row => {
+    const hasBreakers = row.some(item => item.type === CATEGORIES.PROTECTION_CIRCUIT);
+    if (hasBreakers) {
+      const is13M = coffret.modules === 13;
+      if (activeRange === 'XE') {
+        autoItems.push(is13M ? ACCESSORIES_AUTO.comb_xe_13 : ACCESSORIES_AUTO.comb_xe_18);
+      } else {
+        autoItems.push(is13M ? ACCESSORIES_AUTO.comb_xp_13 : ACCESSORIES_AUTO.comb_xp_18);
+      }
+    }
+  });
+
+  // 2. Peignes Verticaux (Selection dynamique XE ou XP)
+  if (coffret.rows > 1 && rowsData.flat().length > 0) {
+     if (activeRange === 'XE') {
+       autoItems.push(ACCESSORIES_AUTO.comb_vertical_xe);
+     } else {
+       autoItems.push(ACCESSORIES_AUTO.comb_vertical_xp);
+     }
+  }
+
+  // 3. Obturateurs
+  const totalCapacity = coffret.modules * coffret.rows;
+  const usedCapacity = rowsData.flat().reduce((acc, m) => acc + m.width, 0);
+  const emptyModules = totalCapacity - usedCapacity;
+  
+  if (emptyModules > 0) {
+    // R9H13387 est vendu par lot de 10 barrettes de 5 modules.
+    // Si on veut être précis sur le devis, on met 1 lot si besoin. 
+    // Pour le calcul de prix, supposons qu'on facture à la barrette ou au lot.
+    // Ici on ajoute 1 lot dès qu'il y a un trou (simplification).
+    if (!autoItems.some(i => i.ref === ACCESSORIES_AUTO.obturateur.ref)) {
+        autoItems.push(ACCESSORIES_AUTO.obturateur);
+    }
+  }
+
+  // 4. Embouts si peignes XP
+  if (activeRange === 'XP' && rowsData.flat().length > 0) {
+     autoItems.push(ACCESSORIES_AUTO.embouts);
+  }
+  
+  // 5. Bornier Terre (Un par tableau systématique pour être sûr)
+  if (!autoItems.some(i => i.ref === ACCESSORIES_AUTO.bornier.ref)) {
+      autoItems.push(ACCESSORIES_AUTO.bornier);
+  }
+
+  return autoItems;
+};
+
+// --- MAIN APP ---
+
+export default function SchneiderConfigurator() {
+  const pdfLoaded = useJSPDF();
+  const [activeRange, setActiveRange] = useState('XE'); 
+  const [currentCoffret, setCurrentCoffret] = useState(CATALOGUE.find(c => c.id === 'c13_2')); 
+  const [rowsData, setRowsData] = useState([[], []]); 
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    setRowsData(prev => Array(currentCoffret.rows).fill([]).map((_, i) => prev[i] || []));
+  }, [currentCoffret]);
+
+  const handleDropItem = (rowIndex, payload) => {
+    const newItem = { ...payload.item, uniqueId: Date.now() + Math.random() };
+    setRowsData(prev => {
+      const newRows = [...prev];
+      const targetRow = [...newRows[rowIndex]];
+      if (payload.type === 'MOVE_INTERNAL') {
+        const sourceRow = [...newRows[payload.fromRow]];
+        sourceRow.splice(payload.fromIndex, 1);
+        newRows[payload.fromRow] = sourceRow;
+        if (payload.fromRow === rowIndex) targetRow.splice(payload.fromIndex, 1); 
+      }
+      targetRow.push(newItem);
+      newRows[rowIndex] = targetRow;
+      return newRows;
+    });
+  };
+
+  const handleRemoveItem = (rowIndex, itemIndex) => {
+    setRowsData(prev => {
+      const newRows = [...prev];
+      newRows[rowIndex] = newRows[rowIndex].filter((_, idx) => idx !== itemIndex);
+      return newRows;
+    });
+  };
+
+  const compliance = useMemo(() => checkCompliance(rowsData, currentCoffret.modules), [rowsData, currentCoffret]);
+  const autoAccessories = useMemo(() => calculateAutoAccessories(rowsData, currentCoffret, activeRange), [rowsData, currentCoffret, activeRange]);
+  
+  const totalPrice = useMemo(() => {
+    const manualTotal = currentCoffret.price + rowsData.flat().reduce((acc, m) => acc + m.price, 0);
+    const autoTotal = autoAccessories.reduce((acc, item) => acc + (item.price * (item.quantityOverride || 1)), 0);
+    return manualTotal + autoTotal;
+  }, [currentCoffret, rowsData, autoAccessories]);
+
+  const generateLabelsPDF = () => {
+    if (!window.jspdf) return;
+    const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    
+    doc.setFontSize(12);
+    doc.text("Planche d'étiquettes - Repérage Tableau", 10, 10);
+    
+    let startY = 20;
+    const moduleWidthMM = 18;
+    const labelHeight = 12; 
+
+    rowsData.forEach((row, rIndex) => {
+       if (row.length === 0) return;
+       doc.setFontSize(10);
+       doc.text(`Rangée ${rIndex + 1}`, 10, startY - 2);
+       
+       let currentX = 10;
+       row.forEach((item) => {
+         const w = item.width * moduleWidthMM;
+         doc.rect(currentX, startY, w, labelHeight);
+         doc.setFontSize(8);
+         const labelText = item.name.includes('Disj') ? (item.amps + 'A ' + item.name.split(' ')[3] || '') : 
+                           item.name.includes('Inter') ? 'Diff 30mA' : 
+                           item.name.substring(0, 10);
+         
+         const textWidth = doc.getStringUnitWidth(labelText) * 8 / doc.internal.scaleFactor;
+         const textX = currentX + (w - textWidth) / 2;
+         doc.text(labelText, textX + 2, startY + 7);
+         currentX += w;
+       });
+       startY += 25;
+    });
+    doc.save('schneider-etiquettes-reperage.pdf');
+  };
+
+  const generatePDF = () => {
+    if (!window.jspdf) return;
+    const doc = new window.jspdf.jsPDF();
+    
+    doc.setFillColor(61, 205, 88); 
+    doc.rect(0, 0, 210, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text("Configurateur Schneider Resi9", 10, 13);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(11);
+    doc.text(`Client: Projet ${activeRange}`, 14, 30);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 160, 30);
+    
+    if (compliance.messages.length > 0) {
+      doc.setFillColor(255, 247, 237);
+      doc.rect(14, 35, 182, 10 + (compliance.messages.length * 5), 'F');
+      doc.setFontSize(10);
+      doc.setTextColor(194, 65, 12);
+      doc.text("Rapport de Conformité NF C 15-100 :", 18, 42);
+      let y = 48;
+      compliance.messages.forEach(msg => {
+        doc.text(`• ${msg}`, 20, y);
+        y+=5;
+      });
+    }
+
+    const tableRows = [];
+    tableRows.push([currentCoffret.ref, currentCoffret.name, '1', `${currentCoffret.price.toFixed(2)} €`]);
+    
+    const consolidated = {};
+    rowsData.flat().forEach(item => {
+      if (!consolidated[item.ref]) consolidated[item.ref] = { ...item, qty: 0 };
+      consolidated[item.ref].qty += 1;
+    });
+    Object.values(consolidated).forEach(item => {
+      tableRows.push([item.ref, item.name, item.qty, `${(item.price * item.qty).toFixed(2)} €`]);
+    });
+
+    const consolidatedAuto = {};
+    autoAccessories.forEach(item => {
+      if (!consolidatedAuto[item.ref]) consolidatedAuto[item.ref] = { ...item, qty: 0 };
+      consolidatedAuto[item.ref].qty += (item.quantityOverride || 1);
+    });
+    Object.values(consolidatedAuto).forEach(item => {
+      tableRows.push([item.ref, `[AUTO] ${item.name}`, item.qty, `${(item.price * item.qty).toFixed(2)} €`]);
+    });
+
+    doc.autoTable({
+      startY: 60 + (compliance.messages.length * 5),
+      head: [['Référence', 'Désignation', 'Qté', 'Prix HT']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: { fillColor: [61, 205, 88] },
+      alternateRowStyles: { fillColor: [240, 253, 244] }
+    });
+    
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`TOTAL MATÉRIEL HT: ${totalPrice.toFixed(2)} €`, 110, finalY);
+    
+    doc.save('schneider-devis-complet.pdf');
+  };
+
+  return (
+    <div className="flex h-screen w-full bg-gray-50 font-sans text-gray-800 overflow-hidden">
+      
+      {/* SIDEBAR CATALOG */}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-lg z-20">
+        <div className="p-4 bg-[#3DCD58] text-white flex items-center gap-3">
+           <div className="bg-white/20 p-2 rounded-full"><Zap size={20} /></div>
+           <div><h1 className="font-bold text-lg">Resi9 Studio</h1><p className="text-xs opacity-90">Catalogue Pro 2025</p></div>
+        </div>
+        <div className="p-4 border-b bg-gray-50">
+          <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Technologie</label>
+          <div className="flex bg-white rounded border p-1 shadow-sm">
+            {['XE', 'XP'].map(gamme => (
+              <button key={gamme} onClick={() => setActiveRange(gamme)} className={`flex-1 py-2 text-sm font-bold rounded transition-colors ${activeRange === gamme ? 'bg-[#3DCD58] text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'}`}>{gamme === 'XE' ? 'XE (Plug)' : 'XP (Vis)'}</button>
+            ))}
+          </div>
+        </div>
+        <div className="p-2 overflow-y-auto flex-1 space-y-6 pb-10">
+           <div className="px-2 sticky top-0 bg-white pb-2 pt-2 z-10">
+             <div className="relative">
+               <Search className="absolute left-3 top-2.5 text-gray-400" size={14} />
+               <input type="text" placeholder="Rechercher..." className="w-full pl-8 py-2 text-sm border border-gray-300 rounded focus:border-[#3DCD58] outline-none focus:ring-1 focus:ring-[#3DCD58]" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
+             </div>
+          </div>
+          {Object.values(CATEGORIES).filter(c => c !== CATEGORIES.COFFRET).map(cat => {
+             const items = CATALOGUE.filter(i => i.type === cat && (i.range === 'ALL' || i.range === activeRange) && (i.name.toLowerCase().includes(searchTerm.toLowerCase()) || i.ref.toLowerCase().includes(searchTerm.toLowerCase())));
+             if(items.length === 0) return null;
+             return (
+               <div key={cat} className="px-2">
+                 <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1 border-b border-gray-100 pb-1 flex items-center gap-2">{cat === CATEGORIES.PROTECTION_TETE && <ShieldCheck size={12}/>}{cat.replace('_', ' ')}</h3>
+                 <div className="space-y-1.5">
+                   {items.map(product => (
+                     <div key={product.id} draggable onDragStart={(e) => e.dataTransfer.setData("application/json", JSON.stringify({ type: 'NEW', item: product }))} className="flex items-center p-2 bg-white border border-gray-200 rounded-md hover:border-[#3DCD58] hover:shadow-md cursor-grab active:cursor-grabbing group transition-all">
+                       <div className="text-[#3DCD58] mr-3">{product.type === CATEGORIES.PROTECTION_TETE ? <ShieldCheck size={18}/> : <Box size={16}/>}</div>
+                       <div className="flex-1 min-w-0">
+                         <div className="text-xs font-bold text-gray-700 truncate">{product.name}</div>
+                         <div className="flex justify-between items-baseline mt-0.5">
+                           <span className="text-[10px] text-gray-400 font-mono bg-gray-50 px-1 rounded">{product.ref}</span>
+                           <span className="text-xs font-bold text-green-700">{product.price}€</span>
+                         </div>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             )
+          })}
+        </div>
+      </div>
+
+      {/* MAIN WORKSPACE */}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        <div className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm shrink-0 z-10">
+          <div className="flex flex-col">
+             <label className="text-[10px] font-bold text-gray-400 uppercase">Configuration Coffret</label>
+             <select className="border-none bg-transparent font-bold text-gray-700 text-sm focus:ring-0 cursor-pointer hover:text-[#3DCD58]" value={currentCoffret.id} onChange={(e) => setCurrentCoffret(CATALOGUE.find(c => c.id === e.target.value))}>
+              {CATALOGUE.filter(c => c.type === CATEGORIES.COFFRET).map(c => <option key={c.id} value={c.id}>{c.name} ({c.rows} rangées)</option>)}
+             </select>
+          </div>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${compliance.status === 'error' ? 'bg-red-50 border-red-200 text-red-700' : compliance.status === 'warning' ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
+             {compliance.status === 'error' ? <ShieldAlert size={16}/> : <CheckCircle2 size={16}/>}
+             <span className="text-xs font-bold">{compliance.status === 'error' ? 'Non Conforme' : compliance.status === 'warning' ? 'Conforme avec alertes' : 'Conforme NF C 15-100'}</span>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-gray-100 p-8">
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-300 p-1">
+               <div className="bg-gray-50 border-b border-gray-200 p-4 rounded-t-lg flex justify-between items-center">
+                  <h2 className="font-bold text-gray-700 flex items-center gap-2"><div className="w-3 h-3 bg-[#3DCD58] rounded-full animate-pulse"></div>Tableau {currentCoffret.modules} Modules</h2>
+                  <div className="text-xs text-gray-500 font-mono bg-white px-2 py-1 rounded border">Total Occupé: {rowsData.flat().reduce((a,b)=>a+b.width,0)}M</div>
+               </div>
+               <div className="p-8 bg-white rounded-b-lg min-h-[500px]">
+                  {Array.from({ length: currentCoffret.rows }).map((_, index) => <Rail key={index} rowIndex={index} modules={rowsData[index]} capacity={currentCoffret.modules} onDropItem={handleDropItem} onRemoveItem={handleRemoveItem} />)}
+               </div>
+            </div>
+
+            <div className="mt-6 bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+               <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2"><Info size={16} /> Diagnostic Normatif (NF C 15-100)</h4>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className={`p-3 rounded border ${compliance.freePercent >= 20 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+                     <div className="text-xs text-gray-500 mb-1">Réserve disponible</div>
+                     <div className={`text-xl font-bold ${compliance.freePercent >= 20 ? 'text-green-700' : 'text-red-700'}`}>{compliance.freePercent.toFixed(0)}%</div>
+                     <div className="text-[10px] text-gray-400 mt-1">Objectif: &gt; 20%</div>
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    {compliance.messages.length === 0 ? (
+                      <div className="flex items-center gap-2 text-green-700 text-sm p-3 bg-green-50 rounded border border-green-100"><CheckCircle2 size={18} /> Le tableau respecte les règles essentielles.</div>
+                    ) : (
+                      compliance.messages.map((msg, i) => (
+                        <div key={i} className="flex items-start gap-2 text-gray-700 text-xs p-2 bg-gray-50 rounded border border-gray-200"><AlertTriangle size={14} className={`shrink-0 mt-0.5 ${msg.includes('Réserve') || msg.includes('obligatoire') ? 'text-red-500' : 'text-orange-500'}`}/><span>{msg}</span></div>
+                      ))
+                    )}
+                  </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT SUMMARY PANEL */}
+      <div className="w-80 bg-white border-l border-gray-200 shadow-xl z-20 flex flex-col">
+         <div className="p-5 border-b border-gray-100"><h3 className="font-bold text-lg text-gray-800 flex items-center gap-2"><FileText size={18}/> Devis Matériel</h3></div>
+         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            
+            {/* 1. COFFRET */}
+            <div className="flex justify-between items-start pb-3 border-b border-gray-100 border-dashed">
+               <div className="text-xs"><div className="font-bold text-gray-700">{currentCoffret.name}</div><div className="text-gray-400">{currentCoffret.ref}</div></div>
+               <div className="text-sm font-bold">{currentCoffret.price.toFixed(2)}€</div>
+            </div>
+
+            {/* 2. MODULES */}
+            {rowsData.flat().length === 0 ? <div className="text-center py-6 text-gray-300 italic text-sm">Tableau vide</div> : 
+              Object.values(rowsData.flat().reduce((acc, item) => { if (!acc[item.ref]) acc[item.ref] = { ...item, qty: 0 }; acc[item.ref].qty++; return acc; }, {})).map(item => (
+                <div key={item.ref} className="flex justify-between items-center text-sm group hover:bg-gray-50 p-1 rounded">
+                  <div className="flex items-center gap-2 overflow-hidden"><span className="bg-gray-200 text-gray-700 text-[10px] font-bold px-1.5 py-0.5 rounded">x{item.qty}</span><div className="flex flex-col min-w-0"><span className="truncate font-medium text-gray-700 text-xs" title={item.name}>{item.name}</span><span className="text-[10px] text-gray-400">{item.ref}</span></div></div>
+                  <div className="font-mono text-gray-600 pl-2 text-xs">{(item.price * item.qty).toFixed(2)}€</div>
+                </div>
+              ))
+            }
+
+            {/* 3. AUTO ACCESSOIRES */}
+            {autoAccessories.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <h4 className="text-[10px] font-bold text-blue-600 uppercase mb-2 flex items-center gap-1"><Puzzle size={12}/> Accessoires Automatiques</h4>
+                {autoAccessories.map((item, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm bg-blue-50 p-1.5 rounded mb-1">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <span className="bg-blue-200 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded">x{item.quantityOverride || 1}</span>
+                      <div className="flex flex-col min-w-0"><span className="truncate font-medium text-blue-900 text-xs">{item.name}</span><span className="text-[10px] text-blue-400">{item.ref}</span></div>
+                    </div>
+                    <div className="font-mono text-blue-700 pl-2 text-xs">{(item.price * (item.quantityOverride || 1)).toFixed(2)}€</div>
+                  </div>
+                ))}
+              </div>
+            )}
+         </div>
+
+         <div className="p-5 bg-gray-50 border-t border-gray-200 space-y-3">
+            <div className="flex justify-between items-end mb-2"><span className="text-sm text-gray-500">Total HT</span><span className="text-3xl font-bold text-[#3DCD58]">{totalPrice.toFixed(2)}€</span></div>
+            
+            <button onClick={generatePDF} disabled={!pdfLoaded} className={`w-full py-3 rounded-lg font-bold shadow-sm flex items-center justify-center gap-2 transition-all ${pdfLoaded ? 'bg-[#3DCD58] hover:bg-[#33b54b] text-white' : 'bg-gray-300 text-gray-500 cursor-wait'}`}>
+              {pdfLoaded ? <><Download size={18}/> Devis PDF</> : 'Chargement...'}
+            </button>
+
+             <button onClick={generateLabelsPDF} disabled={!pdfLoaded} className={`w-full py-2 rounded-lg font-bold shadow-sm border flex items-center justify-center gap-2 transition-all ${pdfLoaded ? 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300' : 'bg-gray-100 text-gray-400 cursor-wait'}`}>
+              {pdfLoaded ? <><Tag size={16}/> Imprimer Étiquettes</> : '...'}
+            </button>
+         </div>
+      </div>
+    </div>
+  );
+}
